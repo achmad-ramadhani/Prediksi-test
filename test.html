@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Prediksi Liga - API Version</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #00051d, #1a1a2e);
+      color: #ddd;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: auto;
+      background: #2c2f38;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    }
+
+    select, input {
+      margin-top: 10px;
+      padding: 10px;
+      width: 100%;
+      border-radius: 6px;
+      border: 2px solid #0088ff;
+      font-size: 16px;
+      transition: border-color 0.3s ease;
+    }
+
+    select:focus, input:focus {
+      border-color: #006fd3;
+      outline: none;
+    }
+
+    button {
+      margin-top: 10px;
+      padding: 10px;
+      width: 100%;
+      border-radius: 6px;
+      border: none;
+      background: #0088ff;
+      color: white;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background 0.3s ease, transform 0.2s ease;
+    }
+
+    button:hover {
+      background: #006fd3;
+      transform: scale(1.05);
+    }
+
+    label {
+      margin-top: 15px;
+      display: block;
+      font-weight: bold;
+    }
+
+    #resultArea {
+      margin-top: 20px;
+      background: #333;
+      padding: 10px;
+      border-radius: 8px;
+      white-space: pre-line;
+      border: 1px solid #0088ff;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Prediksi Hasil Sepak Bola (Pilih Liga & Tim)</h2>
+
+    <label for="leagueSelect">Pilih Liga:</label>
+    <select id="leagueSelect" onchange="loadTeams()">
+      <option value="">-- Pilih Liga --</option>
+      <option value="39">Premier League</option>
+      <option value="140">La Liga</option>
+      <option value="135">Serie A</option>
+      <option value="78">Bundesliga</option>
+      <option value="61">Ligue 1</option>
+    </select>
+
+    <label for="teamA">Tim A (Home)</label>
+    <select id="teamA" onchange="fetchStats('A')"></select>
+
+    <label for="teamB">Tim B (Away)</label>
+    <select id="teamB" onchange="fetchStats('B')"></select>
+
+    <button onclick="predict()">Prediksi</button>
+
+    <div id="resultArea"></div>
+  </div>
+
+  <script>
+    const apiKey = "6dbbdeec097299b9c261617ced7195bb";
+    const host = "api-football-v1.p.rapidapi.com";
+
+    async function loadTeams() {
+      const leagueId = document.getElementById('leagueSelect').value;
+      if (!leagueId) return;
+
+      const url = `https://${host}/v3/teams?league=${leagueId}&season=2024`;
+      const res = await fetch(url, {
+        headers: { "x-rapidapi-host": host, "x-rapidapi-key": apiKey }
+      });
+      const data = await res.json();
+
+      const teams = data.response;
+      const selectA = document.getElementById("teamA");
+      const selectB = document.getElementById("teamB");
+      selectA.innerHTML = "<option value=''>-- Pilih Tim A --</option>";
+      selectB.innerHTML = "<option value=''>-- Pilih Tim B --</option>";
+      teams.forEach(t => {
+        selectA.innerHTML += `<option value="${t.team.id}">${t.team.name}</option>`;
+        selectB.innerHTML += `<option value="${t.team.id}">${t.team.name}</option>`;
+      });
+    }
+
+    const teamStats = {};
+
+    async function fetchStats(teamKey) {
+      const leagueId = document.getElementById('leagueSelect').value;
+      const teamId = document.getElementById('team' + teamKey).value;
+      if (!teamId) return;
+
+      const url = `https://${host}/v3/teams/statistics?league=${leagueId}&season=2024&team=${teamId}`;
+      const res = await fetch(url, {
+        headers: { "x-rapidapi-host": host, "x-rapidapi-key": apiKey }
+      });
+      const data = await res.json();
+      teamStats[teamKey] = data.response;
+    }
+
+    function predict() {
+      const A = teamStats['A'];
+      const B = teamStats['B'];
+      if (!A || !B) {
+        alert("Silakan pilih kedua tim untuk memuat statistik.");
+        return;
+      }
+
+      const tssA = A.goals.for.average.total * 0.4 - A.goals.against.average.total * 0.3 + (20 - A.standings[0].rank) / 20 * 0.3;
+      const tssB = B.goals.for.average.total * 0.4 - B.goals.against.average.total * 0.3 + (20 - B.standings[0].rank) / 20 * 0.3;
+
+      const resultText = `TSS ${A.team.name}: ${tssA.toFixed(2)}\nTSS ${B.team.name}: ${tssB.toFixed(2)}\nPrediksi: ` +
+        (Math.abs(tssA - tssB) < 0.2 ? "Seri" : (tssA > tssB ? A.team.name + " Menang" : B.team.name + " Menang"));
+
+      document.getElementById("resultArea").innerText = resultText;
+    }
+  </script>
+</body>
+</html>
